@@ -22,7 +22,7 @@ uint16_t intconverter_8t16(uint8_t int1, uint8_t int2){
     return (int1<<8) + int2;
 }
 uint16_t censored_intconverter(uint8_t int1, uint8_t int2){
-    uint8_t censored_2 = int2 & 0x11111100;
+    uint8_t censored_2 = int2 & 0x11111110;
     return (int1<<8) + censored_2;
 }
 /**
@@ -69,7 +69,35 @@ void init(){
 }
 
 void my_free(void *pointer) {
+    printf("pointeur donné : %p\n", pointer);
+    printf("pointeur de MY_HEAP : %p\n", MY_HEAP);
+    uint32_t index = (uint32_t)((uintptr_t)pointer - (uintptr_t)MY_HEAP);
+    printf("index déduit : %d\n", index);
+    uint16_t size = censored_intconverter(MY_HEAP[index-2], MY_HEAP[index-1]);
+    if (index+size < 64000){
+        uint16_t next_size_uncensor = intconverter(MY_HEAP[index+size+2-2], MY_HEAP[index+size+2-1]);
+        if ((next_size_uncensor & 0x1) == 0){
+            size += next_size_uncensor;
+        }
+    }
 
+    //fusionner avec le précédent
+    uint16_t current = 0;
+    uint16_t old = 0;
+    while (current < index-2)
+    {
+        old = current;
+        current += censored_intconverter(MY_HEAP[current], MY_HEAP[current+1]);
+        current += 2;
+    }
+    uint16_t prev_size_uncensor = intconverter(MY_HEAP[index+size+2-2], MY_HEAP[index+size+2-1]);
+    if ((prev_size_uncensor & 0x1) == 0){
+        size += prev_size_uncensor;
+        index -= prev_size_uncensor;
+        index -= 2;
+    }
+    MY_HEAP[index-2] = size << 8;
+    MY_HEAP[index-1] = size & 0xfe;
 }
 
 void *my_malloc(size_t size){
@@ -80,11 +108,9 @@ void *my_malloc(size_t size){
 int main(int argc, char* argv[]){
     printf("test-----------test\n");
     init();
-    uint8_t one = 250;
-    uint8_t two = 0;
-    printf("valeur renvoyé par intconverter = %d\n", intconverter_8t16(one, two));
+    my_free((void*)&MY_HEAP+2);
     printf("test : \n");
-    printBits(0xfe);
+
     printf("test : \n");
     printf("--------------fin du code----------\n");
     return 0;
