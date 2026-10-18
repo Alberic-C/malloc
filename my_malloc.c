@@ -68,6 +68,10 @@ void init(){
 
 }
 
+void *my_malloc(size_t size){
+    return 0;
+}
+
 void my_free(void *pointer) {
     printf("pointeur donné : %p\n", pointer);
     printf("pointeur de MY_HEAP : %p\n", MY_HEAP);
@@ -100,9 +104,6 @@ void my_free(void *pointer) {
     MY_HEAP[index-1] = size & 0xfe;
 }
 
-void *my_malloc(size_t size){
-    return 0;
-}
 
 
 int main(int argc, char* argv[]){
