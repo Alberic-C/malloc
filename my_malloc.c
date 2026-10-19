@@ -47,6 +47,10 @@ void write_at_index(int index, int16_t to_write){
 int read_at_index(int index){
     return (MY_HEAP[index]<<8) + MY_HEAP[index+1] ;
 }
+int pointer_to_index(void* ptr){
+    int index = (uint32_t)((uintptr_t)ptr - (uintptr_t)MY_HEAP);
+    return index;
+}
 
 
 /** 
@@ -94,27 +98,36 @@ void *my_malloc(size_t size){
     
     int current = 0;
     int to_sum = 0;
-    while (current>= 64000)//((1-is_free(available_size)) || available_size<size) //le segement est occupé ou la taille est trop petite
+    while (current<= 64000-1)//((1-is_free(available_size)) || available_size<size) //le segement est occupé ou la taille est trop petite
     {
+        printf("dans la boucle\n");
         available_size = read_at_index(current);
         if (is_free(available_size))
         {
+            printf("bloc libre trouvé !, de taille :%d\n", available_size);
             to_sum+=available_size;
             if (to_sum-2 >= size){
+                printf("on a la bonne taille pour donner\n");
                 write_at_index(current, size+1);
                 if (current+size+4<=64000) //check que le prochain bloc est possible d'écrire
                 {
+                    printf("et il reste de la suite\n");
                     //il faut encore vérif si il y a des blocs après sinon on écrase
-                    write_at_index(current+size+2, 64000-current-size-4);
+                    write_at_index(current+size+2, to_sum-size-2);
+                }
+                else
+                {
+                    printf("mais on est a la fin \n");
                 }
                 return (void*) &(MY_HEAP[current+2]);
             }
         }
         else
         {
+            printf("bloc occupé , suite\n");
             to_sum = 0;
         }
-        current +=2+available_size;
+        current +=1+available_size;
     }
     
     return 0;
@@ -123,36 +136,16 @@ void *my_malloc(size_t size){
 void my_free(void *pointer) {
     printf("pointeur donné : %p\n", pointer);
     printf("pointeur de MY_HEAP : %p\n", MY_HEAP);
-    uint32_t index = (uint32_t)((uintptr_t)pointer - (uintptr_t)MY_HEAP);
+    int index = pointer_to_index(pointer);
     printf("index déduit : %d\n", index);
-    uint16_t size = censored_intconverter(MY_HEAP[index-2], MY_HEAP[index-1]);
-    if (index+size < 64000){
-        uint16_t next_size_uncensor = intconverter(MY_HEAP[index+size+2-2], MY_HEAP[index+size+2-1]);
-        if ((next_size_uncensor & 0x1) == 0){
-            size += next_size_uncensor;
-        }
-    }
-
-    //fusionner avec le précédent
-    uint16_t current = 0;
-    uint16_t old = 0;
-    while (current < index-2)
+    int size = read_at_index(index-2);
+    if (is_free(size))
     {
-        old = current;
-        current += censored_intconverter(MY_HEAP[current], MY_HEAP[current+1]);
-        current += 2;
+        printf("already free ??\n");
+        return;
     }
-    uint16_t prev_size_uncensor = intconverter(MY_HEAP[index+size+2-2], MY_HEAP[index+size+2-1]);
-    if ((prev_size_uncensor & 0x1) == 0){
-        size += prev_size_uncensor;
-        index -= prev_size_uncensor;
-        index -= 2;
-    }
-    MY_HEAP[index-2] = size << 8;
-    MY_HEAP[index-1] = size & 0xff;
-    printf("old = %d", old);
+    write_at_index(index-2, size-1);
 }
-
 
 
 int main(int argc, char* argv[]){
@@ -161,7 +154,7 @@ int main(int argc, char* argv[]){
     printBits(0xff);
     printf("\n");
     printf("test malloc 13 :\n");
-    my_malloc(13);
+    printf("résult malloc : %d\n", pointer_to_index(my_malloc(13)) );
     printf("fini malloc 13 :\n");
     printf("premier entete : %d\n", read_at_index(0));
     printf("second entete : %d\n", read_at_index(14+2));
@@ -169,10 +162,23 @@ int main(int argc, char* argv[]){
     printf("test isfree : %d\n", is_free(read_at_index(0)));
     printf("test isfree rempli : %d\n", is_free(read_at_index(14+2)));
     printf("test false : %d\n", 1==2);
-    //my_free((void*)&MY_HEAP+2); pour l'instant c'est segfault
-    printf("test : \n");
-
-    printf("test : \n");
+    printf("test malloc 26 :\n");
+    printf("résult malloc : %d\n", pointer_to_index(my_malloc(26)) );
+    printf("fini malloc 26 :\n");
+    printf("premier entete : %d\n", read_at_index(0));
+    printf("second entete : %d\n", read_at_index(14+2));
+    printf("3e     entete : %d\n", read_at_index(14+2+26+2));
+    printf("devrait etre : %d\n", 64000-2-14-2-26-2);
+    my_free((void*)&(MY_HEAP[2])); //pour l'instant c'est segfault
+    printf("premier entete : %d\n", read_at_index(0));
+    printf("second entete : %d\n", read_at_index(14+2));
+    printf("test malloc 8 :\n");
+    printf("résult malloc : %d\n", pointer_to_index(my_malloc(8)) );
+    printf("fini malloc 8 :\n");
+    printf("premier entete : %d\n", read_at_index(0));
+    printf("second entete : %d\n", read_at_index(8+2));
+    printf("3e     entete : %d\n", read_at_index(14+2));
+    printf("4e     entete : %d\n", read_at_index(14+2+26+2));
     printf("--------------fin du code----------\n");
     return 0;
 }
