@@ -4,6 +4,8 @@
 /*
 le bit le plus faible indique 0 si c'est libre 
                               1 si c'est occupé
+        false = 0
+        true = 1
 */
 uint8_t MY_HEAP[64000];
 
@@ -30,7 +32,7 @@ uint16_t censored_intconverter(uint8_t int1, uint8_t int2){
  * @return 1 if the next part is free
  */
 uint8_t is_free(uint8_t int2){
-    return 1-(int2 & 0x1);
+    return (int2 & 0x1)==0;
 }
 /**
  * @return 1 if the number is a pointer to another bloc
@@ -78,11 +80,10 @@ void init(){
 }
 
 void *my_malloc(size_t size){
-    //int current = 0;
     int available_size = read_at_index(0);
     int fix_size = size + (size&0b1); // s'assurer que le nombre de bites est pair
     printf("malloc de size %zu est passé à %d\n", size, fix_size);
-    if (((available_size & 0b1) == 0) && available_size-2 >= size) //segment libre et de bonne taille
+    if (is_free(available_size) && available_size-2 >= size) //segment libre et de bonne taille
     {
         printf("first trouvé\n");
         int new_size = available_size-2-fix_size;
@@ -91,10 +92,29 @@ void *my_malloc(size_t size){
         return (void*) &(MY_HEAP[2]);
     }
     
-    //int to_sum =0;
-    while ((available_size & 0b1) ==1 || available_size<size) //le segement est occupé ou la taille est trop petite
+    int current = 0;
+    int to_sum = 0;
+    while (current>= 64000)//((1-is_free(available_size)) || available_size<size) //le segement est occupé ou la taille est trop petite
     {
-        return 0; // TODO 
+        available_size = read_at_index(current);
+        if (is_free(available_size))
+        {
+            to_sum+=available_size;
+            if (to_sum-2 >= size){
+                write_at_index(current, size+1);
+                if (current+size+4<=64000) //check que le prochain bloc est possible d'écrire
+                {
+                    //il faut encore vérif si il y a des blocs après sinon on écrase
+                    write_at_index(current+size+2, 64000-current-size-4);
+                }
+                return (void*) &(MY_HEAP[current+2]);
+            }
+        }
+        else
+        {
+            to_sum = 0;
+        }
+        current +=2+available_size;
     }
     
     return 0;
@@ -146,6 +166,9 @@ int main(int argc, char* argv[]){
     printf("premier entete : %d\n", read_at_index(0));
     printf("second entete : %d\n", read_at_index(14+2));
     printf("devrait etre : %d\n", 64000-2-14-2);
+    printf("test isfree : %d\n", is_free(read_at_index(0)));
+    printf("test isfree rempli : %d\n", is_free(read_at_index(14+2)));
+    printf("test false : %d\n", 1==2);
     //my_free((void*)&MY_HEAP+2); pour l'instant c'est segfault
     printf("test : \n");
 
