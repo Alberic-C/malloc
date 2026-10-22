@@ -187,7 +187,7 @@ void my_free(void *pointer)
     int size = read_at_index(index - 2);
     if (is_free(size))
     {
-        printf("already free ?? : %d read : %d\n", index, size);
+        //printf("already free ?? : %d read : %d\n", index, size);
         return;
     }
     //printf("good free : %d size : %d\n", index, size);
