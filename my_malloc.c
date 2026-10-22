@@ -92,23 +92,7 @@ void read_mem()
  **/
 void init()
 {
-    // La taille stockée représente le bloc entier, en-tête de 2 octets inclus.
-    uint16_t size = 64000;
-    write_at_index(0, size);
-    // test -------------------------
-    /*printf("bytes of total = ");
-    printBits(size);
-    printf("\névalué à %d\n", size);
-    printf("bytes of first = ");
-    printBits(size >> 8);
-    printf("\névalué à %d\n", size >> 8);
-    printf("bytes of second = ");
-    printBits(size & 0xff);
-    printf("\névalué à %d\n", size & 0xff);
-
-    printf("lu : %d\n", read_at_index(0));
-    */
-    // test -------------------------
+    write_at_index(0, 64000);
 }
 
 void *my_malloc(size_t size)
@@ -158,27 +142,19 @@ void *my_malloc(size_t size)
 void my_free(void *pointer)
 {
     if (!pointer){
-        //printf("ptr null\n");
         return;
     }
-    //printf("pointeur donné : %p\n", pointer);
-    //printf("pointeur de MY_HEAP : %p\n", MY_HEAP);
     int index = pointer_to_index(pointer);
-    //verif pointer null et dans my heap
     if (index > 64000-1 || index <2)
     {
-        //printf("ptr out of bounds, index : %d\n", index);
         return;
     }
     
-    //printf("index déduit : %d\n", index);
     int size = read_at_index(index - 2);
     if (is_free(size))
     {
-        //printf("already free ?? : %d read : %d\n", index, size);
         return;
     }
-    //printf("good free : %d size : %d\n", index, size);
     write_at_index(index - 2, censor(size));
 }
 
