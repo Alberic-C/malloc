@@ -59,16 +59,16 @@ void read_mem()
         int fix_size = size - (size & 0b1);
         if (is_free(size))
         {
-            printf("%d : bloc libre de taille : %d\n", current, size);
+            printf("%d : bloc libre de taille : %d\n", current, fix_size - 2);
         }
         else
         {
-            printf("%d : bloc occupé de taille : %d\n", current, fix_size);
+            printf("%d : bloc occupé de taille : %d\n", current, fix_size - 2);
         }
-        current += 2 + fix_size;
+        current += fix_size;
         iter++;
         nb_blocs++;
-        sum_blocs += fix_size + 2;
+        sum_blocs += fix_size;
         if (iter > 10)
         {
             printf("|||||||||||| iter trop grand → break\n");
@@ -92,7 +92,8 @@ void read_mem()
  **/
 void init()
 {
-    uint16_t size = 64000 - 2;
+    // La taille stockée représente le bloc entier, en-tête de 2 octets inclus.
+    uint16_t size = 64000;
     write_at_index(0, size);
     // test -------------------------
     /*printf("bytes of total = ");
@@ -118,51 +119,38 @@ void *my_malloc(size_t size)
     }
     int fix_size = size + (size & 0b1); // s'assurer que le nombre de bites est pair
     //printf("malloc de size %zu est passé à %d\n", size, fix_size);
-    int available_size = read_at_index(0);
-    if (is_free(available_size) && available_size - 2 >= fix_size) // segment libre et de bonne taille
-    {
-        //printf("first trouvé\n");
-        int new_size = available_size - 2 - fix_size;
-        write_at_index(0, fix_size + 1); //+1 pour dire que c'est occupé
-        write_at_index(fix_size + 2, new_size);
-        return (void *)&(MY_HEAP[2]);
-    }
-
     int current = 0;
     int first_of_sum = 0;
     int to_sum = 0;
-    while (current < 64000 - 1) //((1-is_free(available_size)) || available_size<size) //le segement est occupé ou la taille est trop petite
+    int allocation_size = fix_size + 2;
+    while (current <= 64000 - 2)
     {
-        //printf("dans la boucle\n");
-        available_size = read_at_index(current);
+        int available_size = read_at_index(current);
+        int block_size = censor(available_size);
         if (is_free(available_size))
         {
-            //printf("bloc libre trouvé !, de taille :%d +2\n", available_size);
-            to_sum += available_size + 2;
-            if (to_sum - 2 >= size)
+            to_sum += block_size;
+            if (to_sum >= allocation_size)
             {
-                //printf("on a la bonne taille pour donner\n");
-                write_at_index(first_of_sum, fix_size + 1);                            //+1 car occupé
-                if (first_of_sum + 2 + fix_size <= 64000 - 2 && to_sum - 2 > fix_size) // check que le prochain bloc est possible d'écrire
+                int remaining_size = to_sum - allocation_size;
+                if (remaining_size >= 2)
                 {
-                    //printf("et il reste de la suite\n");
-                    // il faut encore vérif si il y a des blocs après sinon on écrase
-                    write_at_index(first_of_sum + fix_size + 2, to_sum - fix_size - 2 - 2);
+                    write_at_index(first_of_sum, allocation_size + 1);
+                    write_at_index(first_of_sum + allocation_size, remaining_size);
                 }
-                /*else
+                else
                 {
-                    printf("mais on est a la fin ou on est tout juste \n");
-                }*/
+                    write_at_index(first_of_sum, to_sum + 1);
+                }
                 return (void *)&(MY_HEAP[first_of_sum + 2]);
             }
         }
         else
         {
-            //printf("bloc occupé , suite\n");
             to_sum = 0;
-            first_of_sum = current + 2 + censor(available_size);
+            first_of_sum = current + block_size;
         }
-        current += 2 + censor(available_size);
+        current += block_size;
     }
     return 0;
 }
@@ -191,11 +179,12 @@ void my_free(void *pointer)
         return;
     }
     //printf("good free : %d size : %d\n", index, size);
-    write_at_index(index - 2, size - 1);
+    write_at_index(index - 2, censor(size));
 }
 
-int main(int argc, char *argv[])
-{
+void test1(){
+    //segfault risc : 
+    write_at_index(64000, 42);
     printf("test-----------test\n");
     init();
     printBits(0xff);
@@ -204,13 +193,13 @@ int main(int argc, char *argv[])
     printf("résult malloc : %d\n", pointer_to_index(my_malloc(13)));
     printf("--fini malloc 13 :\n");
     read_mem();
-    printf("devrait etre : %d\n", 64000 - 2 - 14 - 2);
+    printf("devrait etre : 16, %d\n", 64000-16);
     // printf("test false : %d\n", 1==2);
     printf("--test malloc 26 :\n");
     printf("résult malloc : %d\n", pointer_to_index(my_malloc(26)));
     printf("--fini malloc 26 :\n");
     read_mem();
-    printf("devrait etre : %d\n", 64000 - 2 - 14 - 2 - 26 - 2);
+    printf("devrait etre : 16, 28, %d\n", 64000 - 16-28);
     my_free((void *)&(MY_HEAP[2]));
     read_mem();
     printf("--test malloc 8 :\n");
@@ -284,5 +273,23 @@ int main(int argc, char *argv[])
     printf("--fini malloc 63998 :\n");
     read_mem();
     printf("--------------fin du code----------\n");
+    printf("read after : %d\n", read_at_index(64000));
+}
+void test_rapport(){
+    init();
+    read_mem();
+    my_malloc(1);
+    read_mem();
+    my_malloc(17);
+    read_mem();
+    void* malloc_13 = my_malloc(13);
+    read_mem();
+    my_free(malloc_13);
+    read_mem();
+}
+
+int main(int argc, char *argv[])
+{
+    test_rapport();
     return 0;
 }
