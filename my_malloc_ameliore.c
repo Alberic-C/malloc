@@ -40,10 +40,10 @@ static inline int pointer_to_index(void *ptr)
 {
     return (int)((uint8_t *)ptr - MY_HEAP);
 }
-static inline int censor(int a)
+/*static inline int censor(int a)
 {
     return a & ~1;
-}
+}*/
 void read_mem()
 {
     printf("read_mem ------------------\n");
@@ -57,16 +57,16 @@ void read_mem()
         int fix_size = size - (size & 0b1);
         if (is_free(size))
         {
-            printf("%d : bloc libre de taille : %d\n", current, size);
+            printf("%d : bloc libre de taille : %d\n", current, fix_size - 2);
         }
         else
         {
-            printf("%d : bloc occupé de taille : %d\n", current, fix_size);
+            printf("%d : bloc occupé de taille : %d\n", current, fix_size - 2);
         }
-        current += 2 + fix_size;
+        current += fix_size;
         iter++;
         nb_blocs++;
-        sum_blocs += fix_size + 2;
+        sum_blocs += fix_size;
         if (iter > 10)
         {
             printf("|||||||||||| iter trop grand → break\n");
@@ -79,7 +79,7 @@ void read_mem()
 
 void init()
 {
-    write_at_index(0, 64000 - 2);
+    write_at_index(0, 64000);
     // test -------------------------
     /*printf("bytes of total = ");
     printBits(size);
@@ -101,8 +101,9 @@ void *my_malloc(size_t size) {
         return 0;
     }
 
-    // Alignement pair ultra-rapide : (size + 1) & ~1
+    // La taille du bloc inclut l'en-tête de 2 octets.
     uint16_t fix_size = (uint16_t)((size + 1) & ~1);
+    uint16_t allocation_size = fix_size + 2;
     int current = 0;
 
     while (current < 64000) {
@@ -110,25 +111,25 @@ void *my_malloc(size_t size) {
 
         if (is_free(header)) {
             uint32_t total_free = header;
-            int next = current + 2 + header;
+            int next = current + header;
 
             while (next < 64000) {
                 uint16_t next_header = read_at_index(next);
                 if (is_free(next_header)) {
-                    total_free += 2 + next_header;
-                    next += 2 + next_header;
+                    total_free += next_header;
+                    next += next_header;
                 } else {
                     break;
                 }
             }
 
             // Si le bloc fusionné suffit pour l'allocation
-            if (total_free >= fix_size) {
-                uint32_t reste = total_free - fix_size;
-                if (reste >= 2) {
+            if (total_free >= allocation_size) {
+                uint32_t reste = total_free - allocation_size;
+                if (reste > 0) {
                     // On coupe le bloc : bloc occupé + nouveau bloc libre
-                    write_at_index(current, fix_size | 1);
-                    write_at_index(current + 2 + fix_size, (uint16_t)(reste - 2));
+                    write_at_index(current, allocation_size | 1);
+                    write_at_index(current + allocation_size, (uint16_t)reste);
                 } else {
                     // Tout l'espace est pris
                     write_at_index(current, (uint16_t)total_free | 1);
@@ -141,7 +142,7 @@ void *my_malloc(size_t size) {
             }
         } else {
             // Bloc occupé : on va au suivant
-            current += 2 + (header & ~1);
+            current += header & ~1;
         }
     }
     return 0;
@@ -155,12 +156,12 @@ void my_free(void *pointer) {
     uint16_t header = read_at_index(index - 2);
     write_at_index(index - 2, header & ~1);
 
-    uint16_t clean_size = header & ~1; 
-    int next = index + clean_size;
+    uint16_t clean_size = header & ~1;
+    int next = index - 2 + clean_size;
     if (next < 64000) {
         uint16_t next_header = read_at_index(next);
         if (is_free(next_header)) {
-            write_at_index(index - 2, clean_size + 2 + next_header);
+            write_at_index(index - 2, clean_size + next_header);
         }
     }
 }
