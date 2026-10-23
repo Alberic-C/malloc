@@ -9,12 +9,9 @@ le bit le plus faible indique 0 si c'est libre
 */
 uint8_t MY_HEAP[64000];
 
-void printBits(unsigned int num)
-{
-    for (int bit = 0; bit < (sizeof(unsigned int) * 8); bit++)
-    {
-        if (bit % 8 == 0)
-        {
+void printBits(unsigned int num){
+    for (int bit = 0; bit < (sizeof(unsigned int) * 8); bit++){
+        if (bit % 8 == 0){
             printf("| ");
         }
         printf("%i ", num & 0x01);
@@ -24,51 +21,41 @@ void printBits(unsigned int num)
 /**
  * @return 1 if the next part is free
  */
-static inline uint8_t is_free(uint8_t int2)
-{
+static inline uint8_t is_free(uint8_t int2){
     return (int2 & 1) == 0;
 }
-static inline void write_at_index(int index, uint16_t to_write)
-{
+static inline void write_at_index(int index, uint16_t to_write){
     *(uint16_t *)(MY_HEAP + index) = to_write;
 }
-static inline int read_at_index(int index)
-{
+static inline int read_at_index(int index){
     return *(uint16_t *)(MY_HEAP + index);
 }
-static inline int pointer_to_index(void *ptr)
-{
+static inline int pointer_to_index(void *ptr){
     return (int)((uint8_t *)ptr - MY_HEAP);
 }
-/*static inline int censor(int a)
-{
+/*static inline int censor(int a){
     return a & ~1;
 }*/
-void read_mem()
-{
+void read_mem(){
     printf("read_mem ------------------\n");
     int current = 0;
     int iter = 0;
     int nb_blocs = 0;
     int sum_blocs = 0;
-    while (current <= 64000 - 1)
-    {
+    while (current <= 64000 - 1){
         int size = read_at_index(current);
         int fix_size = size - (size & 0b1);
-        if (is_free(size))
-        {
+        if (is_free(size)){
             printf("%d : bloc libre de taille : %d\n", current, fix_size - 2);
         }
-        else
-        {
+        else{
             printf("%d : bloc occupé de taille : %d\n", current, fix_size - 2);
         }
         current += fix_size;
         iter++;
         nb_blocs++;
         sum_blocs += fix_size;
-        if (iter > 10)
-        {
+        if (iter > 10){
             printf("|||||||||||| iter trop grand → break\n");
             break;
         }
@@ -77,23 +64,8 @@ void read_mem()
     printf("------------------  mem read\n");
 }
 
-void init()
-{
+void init(){
     write_at_index(0, 64000);
-    // test -------------------------
-    /*printf("bytes of total = ");
-    printBits(size);
-    printf("\névalué à %d\n", size);
-    printf("bytes of first = ");
-    printBits(size >> 8);
-    printf("\névalué à %d\n", size >> 8);
-    printf("bytes of second = ");
-    printBits(size & 0xff);
-    printf("\névalué à %d\n", size & 0xff);
-
-    printf("lu : %d\n", read_at_index(0));
-    */
-    // test -------------------------
 }
 
 void *my_malloc(size_t size) {
@@ -101,7 +73,6 @@ void *my_malloc(size_t size) {
         return 0;
     }
 
-    // La taille du bloc inclut l'en-tête de 2 octets.
     uint16_t fix_size = (uint16_t)((size + 1) & ~1);
     uint16_t allocation_size = fix_size + 2;
     int current = 0;
@@ -123,7 +94,6 @@ void *my_malloc(size_t size) {
                 }
             }
 
-            // Si le bloc fusionné suffit pour l'allocation
             if (total_free >= allocation_size) {
                 uint32_t reste = total_free - allocation_size;
                 if (reste > 0) {
@@ -136,12 +106,12 @@ void *my_malloc(size_t size) {
                 }
                 return (void *)(MY_HEAP + current + 2);
             } else {
-                // Trop petit, mais on fusionne pour la prochaine fois
+                // Trop petit, mais on fusionne pour la prochaine fois 
+                //permet de ne pas avoir a refaire ce travail la prochaine fois
                 write_at_index(current, (uint16_t)total_free);
                 current = next;
             }
         } else {
-            // Bloc occupé : on va au suivant
             current += header & ~1;
         }
     }
@@ -166,8 +136,7 @@ void my_free(void *pointer) {
     }
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]){
     printf("test-----------test\n");
     init();
     printBits(0xff);

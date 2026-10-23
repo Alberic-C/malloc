@@ -67,17 +67,6 @@ void read_mem(){
     printf("------------------  mem read\n");
 }
 
-/**
- * j'ai besoin d'un flag free/empty donc on divise la taille par 2
- * uint va jusque 255 ... donc on a besoin de 2 uint8_t pour aller jusque 64000
- * on ne peux aller plus haut (128000 est hors de uint16_t)
- * pour les blocs occupés ont mettra 2 int de taille au début et 2 int de taille a la fin
- * donc +4 int de taille
- * pour les libres ont peut essayer de pointer vers  le suivant et précédent donc encore +4
- * pour être sur d'avoir la place on peut forcer une taille minimale de 4 afin d'éviter les micro frees/malloc
- * on peut allors plutot diviser la taille par 4 et donc assurer d'aviter les problèmes de taille a la fin
- * ??? et ainsi rajouter un flag si c'est un lien vers un autre bloc ou pas ??? pas sur que ce soit nécessaire
- **/
 void init(){
     write_at_index(0, 64000);
 }
@@ -87,7 +76,6 @@ void *my_malloc(size_t size){
         return 0;
     }
     int fix_size = size + (size & 0b1); // s'assurer que le nombre de bites est pair
-    //printf("malloc de size %zu est passé à %d\n", size, fix_size);
     int current = 0;
     int first_of_sum = 0;
     int to_sum = 0;
@@ -103,15 +91,13 @@ void *my_malloc(size_t size){
                     write_at_index(first_of_sum, allocation_size + 1);
                     write_at_index(first_of_sum + allocation_size, remaining_size);
                 }
-                else
-                {
+                else{
                     write_at_index(first_of_sum, to_sum + 1);
                 }
                 return (void *)&(MY_HEAP[first_of_sum + 2]);
             }
         }
-        else
-        {
+        else{
             to_sum = 0;
             first_of_sum = current + block_size;
         }
