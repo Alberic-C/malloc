@@ -9,15 +9,6 @@ le bit le plus faible indique 0 si c'est libre
 */
 uint8_t MY_HEAP[64000];
 
-void printBits(unsigned int num){
-    for (int bit = 0; bit < (sizeof(unsigned int) * 8); bit++){
-        if (bit % 8 == 0){
-            printf("| ");
-        }
-        printf("%i ", num & 0x01);
-        num = num >> 1;
-    }
-}
 /**
  * @return 1 if the next part is free
  */
@@ -38,37 +29,25 @@ int pointer_to_index(void *ptr){
 int censor(int a){
     return a - (a & 0b1);
 }
-void read_mem(){
-    printf("read_mem ------------------\n");
-    int current = 0;
-    int iter = 0;
-    int nb_blocs = 0;
-    int sum_blocs = 0;
-    while (current <= 64000 - 1){
-        int size = read_at_index(current);
-        int fix_size = size - (size & 0b1);
-        if (is_free(size)){
-            printf("%d : bloc libre de taille : %d\n", current, fix_size - 2);
-        }
-        else
-        {
-            printf("%d : bloc occupé de taille : %d\n", current, fix_size - 2);
-        }
-        current += fix_size;
-        iter++;
-        nb_blocs++;
-        sum_blocs += fix_size;
-        if (iter > 10){
-            printf("|||||||||||| iter trop grand → break\n");
-            break;
-        }
-    }
-    printf("nb_blocs : %d de somme : %d\n", nb_blocs, sum_blocs);
-    printf("------------------  mem read\n");
-}
 
 void init(){
     write_at_index(0, 64000);
+}
+
+void my_free(void *pointer){
+    if (!pointer){
+        return;
+    }
+    int index = pointer_to_index(pointer);
+    if (index > 64000-1 || index <2){
+        return;
+    }
+    
+    int size = read_at_index(index - 2);
+    if (is_free(size)){
+        return;
+    }
+    write_at_index(index - 2, censor(size));
 }
 
 void *my_malloc(size_t size){
@@ -106,20 +85,44 @@ void *my_malloc(size_t size){
     return 0;
 }
 
-void my_free(void *pointer){
-    if (!pointer){
-        return;
+//autres fonctions
+void printBits(unsigned int num){
+    for (int bit = 0; bit < (sizeof(unsigned int) * 8); bit++){
+        if (bit % 8 == 0){
+            printf("| ");
+        }
+        printf("%i ", num & 0x01);
+        num = num >> 1;
     }
-    int index = pointer_to_index(pointer);
-    if (index > 64000-1 || index <2){
-        return;
+}
+
+void read_mem(){
+    printf("read_mem ------------------\n");
+    int current = 0;
+    int iter = 0;
+    int nb_blocs = 0;
+    int sum_blocs = 0;
+    while (current <= 64000 - 1){
+        int size = read_at_index(current);
+        int fix_size = size - (size & 0b1);
+        if (is_free(size)){
+            printf("%d : bloc libre de taille : %d\n", current, fix_size - 2);
+        }
+        else
+        {
+            printf("%d : bloc occupé de taille : %d\n", current, fix_size - 2);
+        }
+        current += fix_size;
+        iter++;
+        nb_blocs++;
+        sum_blocs += fix_size;
+        if (iter > 10){
+            printf("|||||||||||| iter trop grand → break\n");
+            break;
+        }
     }
-    
-    int size = read_at_index(index - 2);
-    if (is_free(size)){
-        return;
-    }
-    write_at_index(index - 2, censor(size));
+    printf("nb_blocs : %d de somme : %d\n", nb_blocs, sum_blocs);
+    printf("------------------  mem read\n");
 }
 
 void test1(){
