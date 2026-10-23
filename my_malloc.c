@@ -9,12 +9,9 @@ le bit le plus faible indique 0 si c'est libre
 */
 uint8_t MY_HEAP[64000];
 
-void printBits(unsigned int num)
-{
-    for (int bit = 0; bit < (sizeof(unsigned int) * 8); bit++)
-    {
-        if (bit % 8 == 0)
-        {
+void printBits(unsigned int num){
+    for (int bit = 0; bit < (sizeof(unsigned int) * 8); bit++){
+        if (bit % 8 == 0){
             printf("| ");
         }
         printf("%i ", num & 0x01);
@@ -24,41 +21,33 @@ void printBits(unsigned int num)
 /**
  * @return 1 if the next part is free
  */
-uint8_t is_free(uint8_t int2)
-{
+uint8_t is_free(uint8_t int2){
     return (int2 & 0x1) == 0;
 }
-void write_at_index(int index, int16_t to_write)
-{
+void write_at_index(int index, uint16_t to_write){
     MY_HEAP[index] = to_write >> 8;
     MY_HEAP[index + 1] = to_write & 0xff;
 }
-int read_at_index(int index)
-{
+int read_at_index(int index){
     return (MY_HEAP[index] << 8) + MY_HEAP[index + 1];
 }
-int pointer_to_index(void *ptr)
-{
+int pointer_to_index(void *ptr){
     int index = (uint32_t)((uintptr_t)ptr - (uintptr_t)MY_HEAP);
     return index;
 }
-int censor(int a)
-{
+int censor(int a){
     return a - (a & 0b1);
 }
-void read_mem()
-{
+void read_mem(){
     printf("read_mem ------------------\n");
     int current = 0;
     int iter = 0;
     int nb_blocs = 0;
     int sum_blocs = 0;
-    while (current <= 64000 - 1)
-    {
+    while (current <= 64000 - 1){
         int size = read_at_index(current);
         int fix_size = size - (size & 0b1);
-        if (is_free(size))
-        {
+        if (is_free(size)){
             printf("%d : bloc libre de taille : %d\n", current, fix_size - 2);
         }
         else
@@ -69,8 +58,7 @@ void read_mem()
         iter++;
         nb_blocs++;
         sum_blocs += fix_size;
-        if (iter > 10)
-        {
+        if (iter > 10){
             printf("|||||||||||| iter trop grand → break\n");
             break;
         }
@@ -90,15 +78,12 @@ void read_mem()
  * on peut allors plutot diviser la taille par 4 et donc assurer d'aviter les problèmes de taille a la fin
  * ??? et ainsi rajouter un flag si c'est un lien vers un autre bloc ou pas ??? pas sur que ce soit nécessaire
  **/
-void init()
-{
+void init(){
     write_at_index(0, 64000);
 }
 
-void *my_malloc(size_t size)
-{
-    if (size <= 0 || size > 64000 - 2)
-    {
+void *my_malloc(size_t size){
+    if (size <= 0 || size > 64000 - 2){
         return 0;
     }
     int fix_size = size + (size & 0b1); // s'assurer que le nombre de bites est pair
@@ -107,18 +92,14 @@ void *my_malloc(size_t size)
     int first_of_sum = 0;
     int to_sum = 0;
     int allocation_size = fix_size + 2;
-    while (current <= 64000 - 2)
-    {
+    while (current <= 64000 - 2){
         int available_size = read_at_index(current);
         int block_size = censor(available_size);
-        if (is_free(available_size))
-        {
+        if (is_free(available_size)){
             to_sum += block_size;
-            if (to_sum >= allocation_size)
-            {
+            if (to_sum >= allocation_size){
                 int remaining_size = to_sum - allocation_size;
-                if (remaining_size >= 2)
-                {
+                if (remaining_size >= 2){
                     write_at_index(first_of_sum, allocation_size + 1);
                     write_at_index(first_of_sum + allocation_size, remaining_size);
                 }
@@ -139,20 +120,17 @@ void *my_malloc(size_t size)
     return 0;
 }
 
-void my_free(void *pointer)
-{
+void my_free(void *pointer){
     if (!pointer){
         return;
     }
     int index = pointer_to_index(pointer);
-    if (index > 64000-1 || index <2)
-    {
+    if (index > 64000-1 || index <2){
         return;
     }
     
     int size = read_at_index(index - 2);
-    if (is_free(size))
-    {
+    if (is_free(size)){
         return;
     }
     write_at_index(index - 2, censor(size));
@@ -264,8 +242,7 @@ void test_rapport(){
     read_mem();
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]){
     test_rapport();
     return 0;
 }
