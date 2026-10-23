@@ -10,17 +10,31 @@ le bit le plus faible indique 0 si c'est libre
 uint8_t MY_HEAP[64000];
 
 /**
- * @return 1 if the next part is free
+ * @param int2 l'en tête a vérifier
+ * @return 1 si le bloc dont est issu l'en tête est libre
  */
 static inline uint8_t is_free(uint8_t int2){
     return (int2 & 1) == 0;
 }
+/**
+ * @param index l'index dans MY_HEAP auquel il faut écrire
+ * @param to_write l'en tête à écrire
+ * cette fonction écrit l'en tête demandé a l'index demandé dans MY_HEAP
+ */
 static inline void write_at_index(int index, uint16_t to_write){
     *(uint16_t *)(MY_HEAP + index) = to_write;
 }
+/**
+ * @param index l'index dans MY_HEAP qu'il faut lire
+ * @return l'en tête a cet index de MY_HEAP
+ */
 static inline int read_at_index(int index){
     return *(uint16_t *)(MY_HEAP + index);
 }
+/**
+ * @param ptr le pointeur recu
+ * @return l'index dans MY_HEAP que ça représente (peut être out of bounds)
+ */
 static inline int pointer_to_index(void *ptr){
     return (int)((uint8_t *)ptr - MY_HEAP);
 }
@@ -28,66 +42,72 @@ static inline int pointer_to_index(void *ptr){
     return a & ~1;
 }*/
 
+/**
+ * initialise la mémoire en mettant l'en tête a l'index 0
+ */
 void init(){
-    write_at_index(0, 64000);
+    write_at_index(0, 64000);//écrit que la taille totale fait 64000
 }
-
+/**
+ * @param pointer le pointeur donné par my_malloc
+ * libère l'espace qui as été donné afin qu'il puisse être réutilisé
+ */
 void my_free(void *pointer) {
-    if (!pointer) return;
-
     int index = pointer_to_index(pointer);
-    if (index < 2 || index >= 64000) return;
+    if (index < 2 || index >= 64000) return; // vérifie que le pointeur est bien dans MY_HEAP
 
-    uint16_t header = read_at_index(index - 2);
-    write_at_index(index - 2, header & ~1);
+    uint16_t clean_size = read_at_index(index - 2) & ~1;
+    write_at_index(index - 2, clean_size);//on libère le bloc en mettant le bit de poids faible à 0
 
-    uint16_t clean_size = header & ~1;
-    int next = index - 2 + clean_size;
-    if (next < 64000) {
-        uint16_t next_header = read_at_index(next);
+    int next = index - 2 + clean_size; // on va chercher le bloc suivant
+    if (next < 64000) { // si il éxiste
+        uint16_t next_header = read_at_index(next); // on prends sa taille
         if (is_free(next_header)) {
-            write_at_index(index - 2, clean_size + next_header);
+            write_at_index(index - 2, clean_size + next_header); // si il est libre on l'absorbe dans le bloc qu'on viens de libérer
         }
     }
 }
-
+/**
+ * @param size la taille en octets de la zone qu'on veut réserver
+ * @return un pointeur void* vers l'espace mémoire réservé de taille minimale size 
+ * @return 0 en cas d'erreur
+ */
 void *my_malloc(size_t size) {
-    if (size == 0 || size > 64000 - 2) { //size est d'office > 0
+    if (size == 0 || size > 64000 - 2) { //vérifie si demmande réaliste
         return 0;
     }
 
-    uint16_t fix_size = (uint16_t)((size + 1) & ~1);
-    uint16_t allocation_size = fix_size + 2;
+    uint16_t allocation_size = (uint16_t)((size + 1) & ~1)+2;
     int current = 0;
+    // la mémoire pour le first_of sum est géré dans boucle interne
+    while (current < 64000) {//tant qu'on est pas a la fin de la mémoire
+        uint16_t header = read_at_index(current);//taille du bloc courant (avec flag)
 
-    while (current < 64000) {
-        uint16_t header = read_at_index(current);
-
-        if (is_free(header)) {
-            uint32_t total_free = header;
+        if (is_free(header)) {//si le bloc est libre
+            uint32_t total_free = header;//on commence la somme
             int next = current + header;
 
-            while (next < 64000) {
-                uint16_t next_header = read_at_index(next);
+            while (next < 64000) {//boucle interne pour fusionner des blocs libres
+                uint16_t next_header = read_at_index(next);//taille du bloc suivant (avec flag)
                 if (is_free(next_header)) {
-                    total_free += next_header;
+                    total_free += next_header;//on ajoute sa taille a la somme et continue
                     next += next_header;
                 } else {
-                    break;
+                    break;//plus rien a sommer
                 }
             }
 
-            if (total_free >= allocation_size) {
-                uint32_t reste = total_free - allocation_size;
+            if (total_free >= allocation_size) { //si on a assez de place
+                uint16_t reste = total_free - allocation_size;
                 if (reste > 0) {
                     // On coupe le bloc : bloc occupé + nouveau bloc libre
                     write_at_index(current, allocation_size | 1);
-                    write_at_index(current + allocation_size, (uint16_t)reste);
+                    write_at_index(current + allocation_size, reste);
                 } else {
-                    // Tout l'espace est pris
+                    // Tout l'espace est pris même si il reste 2 bits libre (donc un en tête et 0 de place)
                     write_at_index(current, (uint16_t)total_free | 1);
                 }
-                return (void *)(MY_HEAP + current + 2);
+                return (void *)(MY_HEAP + current + 2);//on renvoie le pointeur vers le début de l'espace que l'utilisateur peut utiliser
             } else {
                 // Trop petit, mais on fusionne pour la prochaine fois 
                 //permet de ne pas avoir a refaire ce travail la prochaine fois
@@ -95,10 +115,10 @@ void *my_malloc(size_t size) {
                 current = next;
             }
         } else {
-            current += header & ~1;
+            current += header & ~1;//on passe a la suite
         }
     }
-    return 0;
+    return 0;//pas de bloc suffisant trouvé
 }
 
 //autres fonctions
